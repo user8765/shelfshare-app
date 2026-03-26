@@ -1,0 +1,23 @@
+name: Test AWS Connection
+on: [push] # This means "run every time I push code"
+
+permissions:
+  id-token: write # Required for the OIDC handshake
+  contents: read
+
+jobs:
+  test-connection:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          # Replace the ID below with your actual AWS Account ID
+          role-to-assume: arn:aws:iam::022785766152:role/ShelfShareGitHubRole
+          aws-region: ap-south-1 # Mumbai is closest to Gurgaon
+
+      - name: Verify Login
+        run: aws sts get-caller-identity
