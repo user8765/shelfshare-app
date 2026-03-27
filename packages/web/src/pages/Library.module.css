@@ -1,0 +1,21 @@
+.container { padding: 24px; max-width: 720px; margin: 0 auto; }
+.header   { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+.header h2 { margin: 0; }
+.addBtn   { background: #4285F4; color: #fff; border: none; border-radius: 8px; padding: 10px 18px; font-weight: 600; cursor: pointer; }
+.error    { color: #ef4444; margin-bottom: 12px; }
+.empty    { color: #999; text-align: center; margin-top: 40px; }
+.list     { list-style: none; padding: 0; margin: 0; }
+.card     { display: flex; align-items: center; padding: 16px; border-bottom: 1px solid #f0f0f0; }
+.info     { display: flex; flex-direction: column; flex: 1; gap: 4px; }
+.title    { font-weight: 600; font-size: 15px; }
+.sub      { color: #666; font-size: 13px; }
+.badge    { display: inline-block; color: #fff; font-size: 11px; font-weight: 600; border-radius: 4px; padding: 2px 6px; text-transform: capitalize; align-self: flex-start; }
+.deleteBtn { background: none; border: none; color: #ef4444; font-size: 22px; cursor: pointer; padding: 0 8px; }
+.overlay  { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal    { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 420px; }
+.modal h3 { margin: 0 0 20px; font-size: 20px; }
+.isbnRow  { display: flex; gap: 8px; margin-bottom: 12px; }
+.isbnRow .input { flex: 1; margin-bottom: 0; }
+.input    { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; }
+.lookupBtn { background: #4285F4; color: #fff; border: none; border-radius: 8px; padding: 0 14px; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.cancelBtn { width: 100%; background: none; border: none; color: #666; padding: 12px; cursor: pointer; font-size: 14px; margin-top: 4px; }

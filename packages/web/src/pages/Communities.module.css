@@ -1,0 +1,17 @@
+.container { padding: 24px; max-width: 720px; margin: 0 auto; }
+.header    { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; flex-wrap: wrap; gap: 8px; }
+.header h2 { margin: 0; }
+.btnRow    { display: flex; gap: 8px; }
+.btn       { background: #4285F4; color: #fff; border: none; border-radius: 8px; padding: 10px 16px; font-weight: 600; cursor: pointer; }
+.outline   { background: #fff; color: #4285F4; border: 1px solid #4285F4; }
+.error     { color: #ef4444; margin-bottom: 12px; }
+.empty     { color: #999; text-align: center; margin-top: 40px; }
+.list      { list-style: none; padding: 0; margin: 0; }
+.card      { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-bottom: 1px solid #f0f0f0; }
+.name      { font-weight: 600; font-size: 15px; }
+.code      { font-size: 13px; color: #666; }
+.overlay   { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
+.modal     { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 400px; }
+.modal h3  { margin: 0 0 20px; }
+.input     { width: 100%; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 14px; margin-bottom: 12px; box-sizing: border-box; }
+.cancelBtn { width: 100%; background: none; border: none; color: #666; padding: 10px; cursor: pointer; margin-top: 4px; }

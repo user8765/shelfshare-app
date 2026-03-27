@@ -1,0 +1,16 @@
+.container { padding: 24px; max-width: 720px; margin: 0 auto; }
+.toggle    { display: flex; border: 1px solid #ddd; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+.toggleBtn { flex: 1; padding: 12px; border: none; background: #fff; font-weight: 600; color: #666; cursor: pointer; }
+.active    { background: #4285F4; color: #fff; }
+.error     { color: #ef4444; margin-bottom: 12px; }
+.empty     { color: #999; text-align: center; margin-top: 40px; }
+.list      { list-style: none; padding: 0; margin: 0; }
+.card      { display: flex; align-items: center; padding: 16px; border-bottom: 1px solid #f0f0f0; gap: 12px; }
+.info      { display: flex; flex-direction: column; flex: 1; gap: 4px; }
+.bookId    { font-weight: 600; font-size: 14px; }
+.badge     { display: inline-block; color: #fff; font-size: 11px; font-weight: 600; border-radius: 4px; padding: 2px 6px; align-self: flex-start; }
+.due       { font-size: 12px; color: #666; }
+.actions   { display: flex; gap: 6px; }
+.acceptBtn  { background: #22c55e; color: #fff; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 600; cursor: pointer; }
+.declineBtn { background: #ef4444; color: #fff; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 600; cursor: pointer; }
+.returnBtn  { background: #6366f1; color: #fff; border: none; border-radius: 6px; padding: 8px 12px; font-weight: 600; cursor: pointer; }

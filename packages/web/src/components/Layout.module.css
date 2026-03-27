@@ -1,0 +1,10 @@
+.shell  { display: flex; flex-direction: column; min-height: 100vh; }
+.nav    { display: flex; align-items: center; gap: 8px; padding: 0 24px; height: 56px; border-bottom: 1px solid #e5e7eb; background: #fff; position: sticky; top: 0; z-index: 10; }
+.logo   { font-weight: 700; font-size: 18px; margin-right: 16px; }
+.links  { display: flex; gap: 4px; flex: 1; }
+.link   { padding: 6px 12px; border-radius: 6px; text-decoration: none; color: #555; font-size: 14px; font-weight: 500; }
+.link:hover { background: #f3f4f6; }
+.active { background: #eff6ff; color: #4285F4; }
+.logout { margin-left: auto; background: none; border: 1px solid #ddd; border-radius: 6px; padding: 6px 12px; cursor: pointer; font-size: 13px; color: #666; }
+.logout:hover { background: #f3f4f6; }
+.main   { flex: 1; }
