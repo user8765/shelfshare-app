@@ -419,7 +419,17 @@ WHERE id = ANY($expired_book_ids)
 - [ ] Messaging
 - [ ] Communities
 
-### Phase CD — Continuous Deployment (after Phase 4)
+### Phase Prod — Before Production Launch
+- [ ] Aurora: set `serverlessV2MinCapacity` back to `0.5` (prevents cold start latency)
+- [ ] Aurora: set `deletionProtection: true`
+- [ ] VPC: restore `maxAzs: 2`, `natGateways: 1` for high availability
+- [ ] API: migrate from Lambda back to ECS Fargate (Lambda cold starts unacceptable at prod traffic)
+- [ ] Messaging: implement WebSocket real-time delivery (Redis pub/sub + API Gateway WS + connect/disconnect Lambdas) — replace polling
+- [ ] Redis: migrate from Redis Cloud free tier to ElastiCache (or paid Redis Cloud) for reliability
+- [ ] SES: verify production domain, move out of sandbox mode
+- [ ] Secrets: rotate JWT_SECRET, ensure all secrets in Secrets Manager (no env vars)
+- [ ] CDK: enable termination protection on stack
+- [ ] Monitoring: add CloudWatch alarms for Lambda errors, Aurora CPU, SQS DLQ depth
 - [x] GitHub Actions OIDC trust with AWS (no long-lived keys)
 - [ ] Dockerfile for `packages/api`
 - [ ] ECR repository (add to CDK stack)
