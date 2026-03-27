@@ -3,7 +3,7 @@
   "version": "0.0.1",
   "private": true,
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && node -e \"require('esbuild').buildSync({entryPoints:['dist/index.js'],bundle:true,platform:'node',target:'node20',outfile:'dist/index.js',allowOverwrite:true,external:['pg-native']})\"",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
@@ -13,6 +13,7 @@
   "devDependencies": {
     "@types/aws-lambda": "^8.10.140",
     "@types/pg": "^8.11.0",
+    "esbuild": "^0.21.0",
     "typescript": "^5.4.5"
   }
 }
