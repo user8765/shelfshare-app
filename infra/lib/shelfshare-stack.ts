@@ -15,10 +15,16 @@ export class ShelfShareStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // VPC — 2 AZs, public + private subnets
+    // VPC — single AZ, no NAT Gateway (saves ~$34/month for beta)
+    // Fargate runs in public subnet with assigned public IP
+    // Switch to 2 AZs + NAT Gateway for production
     const vpc = new ec2.Vpc(this, 'Vpc', {
-      maxAzs: 2,
-      natGateways: 1,
+      maxAzs: 1,
+      natGateways: 0,
+      subnetConfiguration: [
+        { name: 'public', subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+        { name: 'isolated', subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
+      ],
     });
 
     // Aurora PostgreSQL Serverless v2 — min 0 ACU so it scales to zero when idle
@@ -30,7 +36,7 @@ export class ShelfShareStack extends cdk.Stack {
       serverlessV2MaxCapacity: 4,
       writer: rds.ClusterInstance.serverlessV2('writer'),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
       defaultDatabaseName: 'shelfshare',
       storageEncrypted: true,
       deletionProtection: false, // set true for prod
@@ -66,7 +72,7 @@ export class ShelfShareStack extends cdk.Stack {
       handler: 'index.handler',
       code: lambda.Code.fromAsset('../lambda/expiry/dist'),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       environment: {
         DATABASE_URL: dbSecret.secretValue.unsafeUnwrap(),
       },
