@@ -355,17 +355,17 @@ WHERE id = ANY($expired_book_ids)
 
 ## 4. Implementation Backlog
 
-### Phase 0 — Monorepo & Infra Bootstrap
-- [ ] Init npm workspaces: `packages/api`, `packages/mobile`, `packages/web`, `packages/shared`
-- [ ] TypeScript strict config in each package
-- [ ] AWS CDK in `infra/` — VPC, Aurora Serverless v2, ElastiCache Redis, ECS Fargate, SQS, SES
-- [ ] CI pipeline (GitHub Actions) — lint, typecheck, build
+### Phase 0 — Monorepo & Infra Bootstrap ✅
+- [x] Init npm workspaces: `packages/api`, `packages/mobile`, `packages/web`, `packages/shared`
+- [x] TypeScript strict config in each package
+- [x] AWS CDK in `infra/` — VPC, Aurora Serverless v2, ElastiCache Redis, ECS Fargate, SQS, SES
+- [x] CI pipeline (GitHub Actions) — typecheck, build (triggers on master + PRs)
 
-### Phase 1 — Auth
-- [ ] Google OIDC callback → RS256 JWT
-- [ ] Invite code generation + redemption
-- [ ] JWT middleware
-- [ ] `users` + `invites` migrations
+### Phase 1 — Auth ✅
+- [x] Google OIDC callback → RS256 JWT
+- [x] Invite code generation + redemption
+- [x] JWT middleware
+- [x] `users` + `invites` migrations
 
 ### Phase 2 — User Profile & Location
 - [ ] `PATCH /users/me`
@@ -418,6 +418,13 @@ WHERE id = ANY($expired_book_ids)
 - [ ] Lending tracker
 - [ ] Messaging
 - [ ] Communities
+
+### Phase CD — Continuous Deployment (after Phase 4)
+- [x] GitHub Actions OIDC trust with AWS (no long-lived keys)
+- [ ] Dockerfile for `packages/api`
+- [ ] ECR repository (add to CDK stack)
+- [ ] ECS task definition + Fargate service (add to CDK stack)
+- [ ] GitHub Actions CD workflow — build image → push to ECR → update ECS service on push to master
 
 ### Phase 10 — Web App
 - [ ] React + Vite setup
