@@ -11,11 +11,20 @@
   },
   "dependencies": {
     "@fastify/cors": "^11.2.0",
+    "@fastify/jwt": "^10.0.0",
     "@shelfshare/shared": "*",
-    "fastify": "^5.8.4"
+    "fastify": "^5.8.4",
+    "fastify-plugin": "^5.1.0",
+    "google-auth-library": "^10.6.2",
+    "jsonwebtoken": "^9.0.3",
+    "nanoid": "^5.1.7",
+    "pg": "^8.20.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.0.0",
+    "@types/pg": "^8.20.0",
     "ts-node-dev": "^2.0.0",
     "typescript": "*"
   }
