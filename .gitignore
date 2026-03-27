@@ -7,3 +7,5 @@ dist/
 !.env.example
 cdk.out/
 aws-resources.md
+google_client_secret*.json
+*.swp
