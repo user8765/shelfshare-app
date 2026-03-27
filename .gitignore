@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.expo/
+*.js.map
+.env
+.env.*
+!.env.example
+cdk.out/

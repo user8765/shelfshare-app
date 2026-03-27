@@ -1,0 +1,19 @@
+{
+  "name": "shelfshare",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "infra"
+  ],
+  "scripts": {
+    "dev:api": "npm run dev --workspace=packages/api",
+    "dev:web": "npm run dev --workspace=packages/web",
+    "dev:mobile": "npm run start --workspace=packages/mobile",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "npm run lint --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
