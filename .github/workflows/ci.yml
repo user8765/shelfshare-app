@@ -18,6 +18,11 @@ jobs:
 
       - run: npm ci
 
+      - name: Install Lambda dependencies
+        run: |
+          cd lambda/expiry && npm ci
+          cd ../notifications && npm ci
+
       - name: Build shared package
         run: npm run build --workspace=packages/shared
 
