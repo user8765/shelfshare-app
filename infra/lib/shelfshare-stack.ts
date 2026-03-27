@@ -90,15 +90,21 @@ export class ShelfShareStack extends cdk.Stack {
       proxy:   true,
     });
 
-    // Migration Lambda — invoked by CD pipeline, runs inside AWS with DB access
+    // Migration Lambda — runs inside VPC to reach Aurora
     const migrateFn = new lambda.Function(this, 'MigrateLambda', {
       runtime:     lambda.Runtime.NODEJS_20_X,
       handler:     'index.handler',
       code:        lambda.Code.fromAsset('../lambda/migrate/dist'),
+      vpc,
+      vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
+      allowPublicSubnet: true,
       environment: { DB_SECRET_ARN: dbSecret.secretArn },
       timeout:     cdk.Duration.seconds(60),
     });
     dbSecret.grantRead(migrateFn);
+
+    // Allow migrate Lambda to connect to Aurora
+    dbCluster.connections.allowFrom(migrateFn, ec2.Port.tcp(5432));
 
     new cdk.CfnOutput(this, 'MigrateLambdaName', { value: migrateFn.functionName });
     const expiryFn = new lambda.Function(this, 'ExpiryLambda', {

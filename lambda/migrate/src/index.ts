@@ -12,7 +12,7 @@ export const handler = async () => {
   const { SecretString } = await sm.send(new GetSecretValueCommand({ SecretId: arn }));
   if (!SecretString) throw new Error('DB secret empty');
 
-  const pool = new Pool({ connectionString: SecretString });
+  const pool = new Pool({ connectionString: SecretString, ssl: { rejectUnauthorized: false } });
   const client = await pool.connect();
 
   try {

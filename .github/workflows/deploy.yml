@@ -57,19 +57,5 @@ jobs:
           ALLOWED_ORIGINS:       ${{ secrets.ALLOWED_ORIGINS }}
           ALLOWED_EMAIL_DOMAINS: ${{ secrets.ALLOWED_EMAIL_DOMAINS }}
 
-      - name: Run DB migrations via Lambda
-        run: |
-          MIGRATE_FN=$(aws cloudformation describe-stacks \
-            --stack-name ShelfShareStack \
-            --region ap-south-1 \
-            --query "Stacks[0].Outputs[?OutputKey=='MigrateLambdaName'].OutputValue" \
-            --output text)
-          echo "Invoking: $MIGRATE_FN"
-          aws lambda invoke \
-            --function-name "$MIGRATE_FN" \
-            --payload '{}' \
-            --cli-binary-format raw-in-base64-out \
-            --region ap-south-1 \
-            /tmp/migrate-result.json
-          cat /tmp/migrate-result.json
-          grep -q '"errorMessage"' /tmp/migrate-result.json && exit 1 || true
+# DB migrations are run manually when needed:
+# DATABASE_URL=... NODE_ENV=production node scripts/migrate.js

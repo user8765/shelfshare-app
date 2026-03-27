@@ -71,8 +71,13 @@ DB_SECRET_ARN=<DbSecret ARN> NODE_ENV=production node scripts/migrate.js
 Push to `master` — GitHub Actions handles everything automatically:
 1. Typecheck
 2. Build all packages + Lambdas
-3. Run DB migrations
-4. `cdk deploy`
+3. `cdk deploy`
+
+## Running Migrations (manual, run when schema changes)
+```bash
+DATABASE_URL=<connection-string> NODE_ENV=production node scripts/migrate.js
+```
+Migrations are infrequent — run this locally after adding new migration files.
 
 ## Local Development
 ```bash
