@@ -46,11 +46,16 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-south-1
 
-      - name: Run DB migrations
-        run: node scripts/migrate.js
-        env:
-          DB_SECRET_ARN: ${{ secrets.DB_SECRET_ARN }}
-          NODE_ENV: production
+      - name: Run DB migrations via Lambda
+        run: |
+          aws lambda invoke \
+            --function-name ShelfShareStack-MigrateLambda \
+            --payload '{}' \
+            --cli-binary-format raw-in-base64-out \
+            --region ap-south-1 \
+            /tmp/migrate-result.json
+          cat /tmp/migrate-result.json
+          grep -q '"errorMessage"' /tmp/migrate-result.json && exit 1 || true
 
       - name: CDK deploy
         run: npx cdk deploy --app "npx ts-node bin/app.ts" --require-approval never

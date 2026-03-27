@@ -3,5 +3,5 @@
   "description": "ShelfShare app development agent",
   "prompt": "file://prompts/shelfshare-context.md",
   "tools": ["fs_read", "fs_write", "execute_bash", "grep", "glob", "code"],
-  "resources": [".kiro/context/architecture.md"]
+  "resources": ["file://context/architecture.md"]
 }

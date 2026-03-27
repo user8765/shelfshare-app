@@ -90,6 +90,16 @@ export class ShelfShareStack extends cdk.Stack {
       proxy:   true,
     });
 
+    // Migration Lambda — invoked by CD pipeline, runs inside AWS with DB access
+    const migrateFn = new lambda.Function(this, 'MigrateLambda', {
+      runtime:     lambda.Runtime.NODEJS_20_X,
+      handler:     'index.handler',
+      code:        lambda.Code.fromAsset('../lambda/migrate/dist'),
+      environment: { DB_SECRET_ARN: dbSecret.secretArn },
+      timeout:     cdk.Duration.seconds(60),
+    });
+    dbSecret.grantRead(migrateFn);
+
     // Auto-expiry Lambda — runs hourly
     const expiryFn = new lambda.Function(this, 'ExpiryLambda', {
       runtime:     lambda.Runtime.NODEJS_20_X,
