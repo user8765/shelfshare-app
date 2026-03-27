@@ -45,10 +45,9 @@ export class ShelfShareStack extends cdk.Stack {
       identity: ses.Identity.domain('shelfshare.app'),
     });
 
-    // Secrets
-    const dbSecret = new secretsmanager.Secret(this, 'DbSecret', {
-      description: 'ShelfShare DB connection string',
-    });
+    // Secrets — ARNs passed to Lambda, values fetched at cold start (never in env/CF template)
+    const dbSecret  = new secretsmanager.Secret(this, 'DbSecret',  { description: 'ShelfShare DB connection string' });
+    const jwtSecret = new secretsmanager.Secret(this, 'JwtSecret', { description: 'ShelfShare JWT signing secret' });
 
     // SQS
     const notificationsDlq = new sqs.Queue(this, 'NotificationsDlq', {
@@ -59,9 +58,9 @@ export class ShelfShareStack extends cdk.Stack {
       deadLetterQueue: { queue: notificationsDlq, maxReceiveCount: 3 },
     });
 
-    // Shared Lambda env
+    // Shared Lambda env — ARNs only, secrets fetched at cold start
     const sharedEnv = {
-      DATABASE_URL:            dbSecret.secretValue.unsafeUnwrap(),
+      DB_SECRET_ARN:           dbSecret.secretArn,
       NOTIFICATIONS_QUEUE_URL: notificationsQueue.queueUrl,
       NODE_ENV:                'production',
     };
@@ -75,14 +74,16 @@ export class ShelfShareStack extends cdk.Stack {
       vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
       environment: {
         ...sharedEnv,
-        JWT_SECRET:          process.env['JWT_SECRET'] ?? '',
+        JWT_SECRET_ARN:      jwtSecret.secretArn,
         GOOGLE_CLIENT_ID:    process.env['GOOGLE_CLIENT_ID'] ?? '',
         GOOGLE_MAPS_API_KEY: process.env['GOOGLE_MAPS_API_KEY'] ?? '',
+        ALLOWED_ORIGINS:     process.env['ALLOWED_ORIGINS'] ?? 'http://localhost:5173',
       },
       timeout:     cdk.Duration.seconds(30),
       memorySize:  512,
     });
     dbSecret.grantRead(apiFn);
+    jwtSecret.grantRead(apiFn);
     notificationsQueue.grantSendMessages(apiFn);
 
     // API Gateway → API Lambda
@@ -98,7 +99,7 @@ export class ShelfShareStack extends cdk.Stack {
       code:        lambda.Code.fromAsset('../lambda/expiry/dist'),
       vpc,
       vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
-      environment: { DATABASE_URL: dbSecret.secretValue.unsafeUnwrap() },
+      environment: { DB_SECRET_ARN: dbSecret.secretArn },
       timeout:     cdk.Duration.seconds(30),
     });
     dbSecret.grantRead(expiryFn);

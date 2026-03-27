@@ -1,10 +1,23 @@
 import { Pool } from 'pg';
+import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-secrets-manager';
 import type { ScheduledHandler } from 'aws-lambda';
 
-const db = new Pool({ connectionString: process.env['DATABASE_URL'] });
+const smClient = new SecretsManagerClient({});
+let db: Pool | null = null;
+
+async function getDb(): Promise<Pool> {
+  if (db) return db;
+  const arn = process.env['DB_SECRET_ARN'];
+  if (!arn) throw new Error('DB_SECRET_ARN not set');
+  const res = await smClient.send(new GetSecretValueCommand({ SecretId: arn }));
+  if (!res.SecretString) throw new Error('DB secret is empty');
+  db = new Pool({ connectionString: res.SecretString });
+  return db;
+}
 
 export const handler: ScheduledHandler = async () => {
-  const client = await db.connect();
+  const pool = await getDb();
+  const client = await pool.connect();
   try {
     await client.query('BEGIN');
 

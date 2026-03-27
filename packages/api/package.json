@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1018.0",
+    "@aws-sdk/client-secrets-manager": "^3.1018.0",
     "@aws-sdk/client-sqs": "^3.1018.0",
     "@fastify/aws-lambda": "^6.4.0",
     "@fastify/cors": "^11.2.0",
+    "@fastify/helmet": "^13.0.2",
     "@fastify/jwt": "^10.0.0",
+    "@fastify/rate-limit": "^10.3.0",
     "@shelfshare/shared": "*",
     "fastify": "^5.8.4",
     "fastify-plugin": "^5.1.0",

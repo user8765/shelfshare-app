@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import {
   createCommunity, getCommunityById, updateCommunity,
-  joinCommunity, getMembers, updateMember, removeMember,
+  joinCommunity, getMembers, updateMember, removeMember, getMemberRole,
 } from '../communities/service.js';
 import { requireCommunityAdmin } from '../communities/middleware.js';
 
@@ -52,9 +52,11 @@ const communityRoutes: FastifyPluginAsync = async (app) => {
     }
   });
 
-  // GET /communities/:id/members
-  app.get('/communities/:id/members', async (req) => {
+  // GET /communities/:id/members — members only
+  app.get('/communities/:id/members', async (req, reply) => {
     const { id } = req.params as { id: string };
+    const role = await getMemberRole(id, req.user.sub);
+    if (!role) return reply.status(403).send({ error: 'Not a member of this community' });
     return getMembers(id);
   });
 

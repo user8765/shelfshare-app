@@ -119,10 +119,12 @@ export async function getBorrowRequests(
   return rows;
 }
 
-export async function getBorrowRequestById(id: string): Promise<BorrowRequest | null> {
+export async function getBorrowRequestById(id: string, userId: string): Promise<BorrowRequest | null> {
   const { rows } = await db.query<BorrowRequest>(
-    `SELECT ${BR_SELECT} FROM borrow_requests WHERE id = $1`,
-    [id],
+    `SELECT ${BR_SELECT} FROM borrow_requests
+     WHERE id = $1
+       AND (requester_id = $2 OR book_id IN (SELECT id FROM books WHERE owner_id = $2))`,
+    [id, userId],
   );
   return rows[0] ?? null;
 }

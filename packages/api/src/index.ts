@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import helmet from '@fastify/helmet';
+import rateLimit from '@fastify/rate-limit';
 import awsLambdaFastify from '@fastify/aws-lambda';
 import type { Handler as LambdaHandler } from 'aws-lambda';
 import jwtPlugin from './plugins/jwt.js';
@@ -11,14 +13,28 @@ import communityRoutes from './routes/communities.js';
 import discoverRoutes from './routes/discover.js';
 import borrowRoutes from './routes/borrow.js';
 import messageRoutes from './routes/messages.js';
+import { getSecrets } from './config/secrets.js';
 
 async function buildApp() {
   const app = Fastify({ logger: true });
 
-  await app.register(cors, { origin: '*' });
+  const allowedOrigins = process.env['ALLOWED_ORIGINS']?.split(',') ?? ['http://localhost:5173', 'http://localhost:3000'];
+
+  await app.register(helmet);
+  await app.register(cors, { origin: allowedOrigins });
+
+  // Global rate limit
+  await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
+
   await app.register(jwtPlugin);
 
-  await app.register(authRoutes);
+  // Stricter rate limit on auth endpoints
+  await app.register(authRoutes, { prefix: '' });
+  app.addHook('onRoute', (routeOptions) => {
+    if (routeOptions.url?.startsWith('/auth')) {
+      routeOptions.config = { ...routeOptions.config, rateLimit: { max: 10, timeWindow: '1 minute' } };
+    }
+  });
   await app.register(inviteRoutes);
   await app.register(userRoutes);
   await app.register(bookRoutes);
@@ -32,8 +48,10 @@ async function buildApp() {
   return app;
 }
 
-// Lambda handler — proxy is initialised once and reused across warm invocations
-const appPromise = buildApp().then((app) => awsLambdaFastify(app));
+// Lambda handler — secrets validated at cold start
+const appPromise = getSecrets()  // fail fast if secrets missing
+  .then(() => buildApp())
+  .then((app) => awsLambdaFastify(app));
 
 export const handler: LambdaHandler = async (event, context) => {
   const proxy = await appPromise;

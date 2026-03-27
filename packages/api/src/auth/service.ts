@@ -1,6 +1,7 @@
 import { OAuth2Client } from 'google-auth-library';
 import jwt from 'jsonwebtoken';
 import { db } from '../db/client.js';
+import { getSecrets } from '../config/secrets.js';
 import type { JwtPayload } from '../plugins/jwt.js';
 
 const googleClient = new OAuth2Client(process.env['GOOGLE_CLIENT_ID']);
@@ -19,6 +20,11 @@ export async function verifyGoogleToken(idToken: string) {
   };
 }
 
+export async function isFirstUser(): Promise<boolean> {
+  const { rows } = await db.query<{ count: string }>(`SELECT COUNT(*)::text AS count FROM users`);
+  return parseInt(rows[0]?.count ?? '0', 10) === 0;
+}
+
 export async function upsertUser(googleProfile: Awaited<ReturnType<typeof verifyGoogleToken>>) {
   const { rows } = await db.query<{ id: string; email: string }>(
     `INSERT INTO users (google_id, email, display_name, avatar_url)
@@ -35,8 +41,8 @@ export async function upsertUser(googleProfile: Awaited<ReturnType<typeof verify
   return user;
 }
 
-export function signJwt(payload: JwtPayload): string {
-  const secret = process.env['JWT_SECRET'];
-  if (!secret) throw new Error('JWT_SECRET not set');
-  return jwt.sign(payload, secret, { expiresIn: '7d' });
+export function signJwt(payload: JwtPayload): Promise<string>;
+export async function signJwt(payload: JwtPayload): Promise<string> {
+  const { jwtSecret } = await getSecrets();
+  return jwt.sign(payload, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
 }

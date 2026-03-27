@@ -39,7 +39,7 @@ const borrowRoutes: FastifyPluginAsync = async (app) => {
   // GET /borrow-requests/:id
   app.get('/borrow-requests/:id', async (req, reply) => {
     const { id } = req.params as { id: string };
-    const request = await getBorrowRequestById(id);
+    const request = await getBorrowRequestById(id, req.user.sub);
     if (!request) return reply.status(404).send({ error: 'Not found' });
     return request;
   });
