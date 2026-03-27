@@ -9,6 +9,7 @@ import * as lambda from 'aws-cdk-lib/aws-lambda';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
+import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
 import { Construct } from 'constructs';
 
 export class ShelfShareStack extends cdk.Stack {
@@ -96,5 +97,25 @@ export class ShelfShareStack extends cdk.Stack {
       schedule: events.Schedule.rate(cdk.Duration.hours(1)),
       targets: [new targets.LambdaFunction(expiryFn)],
     });
+
+    // Notifications Lambda — SQS consumer
+    const notificationsFn = new lambda.Function(this, 'NotificationsLambda', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('../lambda/notifications/dist'),
+      environment: { SES_FROM_EMAIL: 'noreply@shelfshare.app' },
+      timeout: cdk.Duration.seconds(30),
+    });
+
+    const notificationsQueue = new sqs.Queue(this, 'NotificationsQueue', {
+      visibilityTimeout: cdk.Duration.seconds(30),
+      deadLetterQueue: { queue: notificationsDlq, maxReceiveCount: 3 },
+    });
+
+    notificationsFn.addEventSource(
+      new lambdaEventSources.SqsEventSource(notificationsQueue, { batchSize: 10 }),
+    );
+
+    new cdk.CfnOutput(this, 'NotificationsQueueUrl', { value: notificationsQueue.queueUrl });
   }
 }

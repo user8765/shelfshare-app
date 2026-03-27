@@ -1,4 +1,5 @@
 import { db } from '../db/client.js';
+import { enqueueNotification } from '../notifications/publisher.js';
 import type { BorrowRequest, BorrowRequestStatus } from '@shelfshare/shared';
 
 const BR_SELECT = `
@@ -8,6 +9,28 @@ const BR_SELECT = `
   request_expires_at AS "requestExpiresAt",
   created_at AS "createdAt", updated_at AS "updatedAt"
 `;
+
+interface NotifContext {
+  bookTitle: string;
+  ownerEmail: string; ownerName: string;
+  borrowerEmail: string; borrowerName: string;
+}
+
+async function getNotifContext(borrowRequestId: string): Promise<NotifContext> {
+  const { rows } = await db.query<NotifContext>(
+    `SELECT b.title AS "bookTitle",
+            owner.email AS "ownerEmail", owner.display_name AS "ownerName",
+            borrower.email AS "borrowerEmail", borrower.display_name AS "borrowerName"
+     FROM borrow_requests br
+     JOIN books b ON b.id = br.book_id
+     JOIN users owner ON owner.id = b.owner_id
+     JOIN users borrower ON borrower.id = br.requester_id
+     WHERE br.id = $1`,
+    [borrowRequestId],
+  );
+  if (!rows[0]) throw new Error('Notif context not found');
+  return rows[0];
+}
 
 async function getExpiryHours(): Promise<number> {
   const { rows } = await db.query<{ value: string }>(
@@ -40,6 +63,18 @@ export async function createBorrowRequest(bookId: string, requesterId: string): 
     if (!request) throw new Error('Failed to create borrow request');
 
     await client.query('COMMIT');
+
+    // Notify owner
+    const ctx = await getNotifContext(request.id);
+    await enqueueNotification({
+      type: 'borrow_request_created',
+      borrowRequestId: request.id,
+      bookTitle: ctx.bookTitle,
+      ownerEmail: ctx.ownerEmail, ownerName: ctx.ownerName,
+      borrowerEmail: ctx.borrowerEmail, borrowerName: ctx.borrowerName,
+      recipientEmail: ctx.ownerEmail, recipientName: ctx.ownerName,
+    });
+
     return request;
   } catch (err) {
     await client.query('ROLLBACK');
@@ -119,6 +154,17 @@ export async function acceptRequest(id: string, ownerId: string, dueDate: string
     );
 
     await client.query('COMMIT');
+
+    const ctx = await getNotifContext(id);
+    await enqueueNotification({
+      type: 'borrow_request_accepted',
+      borrowRequestId: id, bookTitle: ctx.bookTitle,
+      ownerEmail: ctx.ownerEmail, ownerName: ctx.ownerName,
+      borrowerEmail: ctx.borrowerEmail, borrowerName: ctx.borrowerName,
+      dueDate,
+      recipientEmail: ctx.borrowerEmail, recipientName: ctx.borrowerName,
+    });
+
     return rows[0]!;
   } catch (err) {
     await client.query('ROLLBACK');
@@ -154,6 +200,16 @@ export async function declineRequest(id: string, ownerId: string): Promise<Borro
     );
 
     await client.query('COMMIT');
+
+    const ctx = await getNotifContext(id);
+    await enqueueNotification({
+      type: 'borrow_request_declined',
+      borrowRequestId: id, bookTitle: ctx.bookTitle,
+      ownerEmail: ctx.ownerEmail, ownerName: ctx.ownerName,
+      borrowerEmail: ctx.borrowerEmail, borrowerName: ctx.borrowerName,
+      recipientEmail: ctx.borrowerEmail, recipientName: ctx.borrowerName,
+    });
+
     return rows[0]!;
   } catch (err) {
     await client.query('ROLLBACK');
