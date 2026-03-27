@@ -1,0 +1,62 @@
+name: Deploy
+
+on:
+  push:
+    branches: [master]
+
+permissions:
+  id-token: write   # required for OIDC auth to AWS
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Lambda dependencies
+        run: |
+          cd lambda/expiry && npm ci
+          cd ../notifications && npm ci
+
+      - name: Build shared package
+        run: npm run build --workspace=packages/shared
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Build all
+        run: |
+          npm run build --workspace=packages/api
+          npm run build --workspace=packages/web
+          cd lambda/expiry && npm run build
+          cd ../notifications && npm run build
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ap-south-1
+
+      - name: Run DB migrations
+        run: node scripts/migrate.js
+        env:
+          DB_SECRET_ARN: ${{ secrets.DB_SECRET_ARN }}
+          NODE_ENV: production
+
+      - name: CDK deploy
+        run: npx cdk deploy --app "npx ts-node bin/app.ts" --require-approval never
+        working-directory: infra
+        env:
+          GOOGLE_CLIENT_ID:    ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          ALLOWED_ORIGINS:     ${{ secrets.ALLOWED_ORIGINS }}
+          ALLOWED_EMAIL_DOMAINS: ${{ secrets.ALLOWED_EMAIL_DOMAINS }}

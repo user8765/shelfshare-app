@@ -11,7 +11,8 @@
     "dev:mobile": "npm run start --workspace=packages/mobile",
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "npm run lint --workspaces --if-present",
-    "build": "npm run build --workspaces --if-present"
+    "build": "npm run build --workspaces --if-present && cd lambda/expiry && npm run build && cd ../notifications && npm run build",
+    "migrate": "node scripts/migrate.js"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
