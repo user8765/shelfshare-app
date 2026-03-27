@@ -1,5 +1,4 @@
 import { db } from '../db/client.js';
-import { redis } from '../db/redis.js';
 import { enqueueNotification } from '../notifications/publisher.js';
 import type { Message } from '@shelfshare/shared';
 
@@ -17,9 +16,6 @@ export async function sendMessage(senderId: string, recipientId: string, content
   );
   const message = rows[0];
   if (!message) throw new Error('Failed to send message');
-
-  // Publish to Redis for real-time delivery
-  await redis.publish(`user:${recipientId}:messages`, JSON.stringify(message));
 
   // Email fallback — only if recipient has email_notif enabled
   const { rows: recipientRows } = await db.query<{ email: string; displayName: string; emailNotif: boolean }>(

@@ -12,13 +12,13 @@
   "dependencies": {
     "@aws-sdk/client-apigatewaymanagementapi": "^3.1018.0",
     "@aws-sdk/client-sqs": "^3.1018.0",
+    "@fastify/aws-lambda": "^6.4.0",
     "@fastify/cors": "^11.2.0",
     "@fastify/jwt": "^10.0.0",
     "@shelfshare/shared": "*",
     "fastify": "^5.8.4",
     "fastify-plugin": "^5.1.0",
     "google-auth-library": "^10.6.2",
-    "ioredis": "^5.10.1",
     "jsonwebtoken": "^9.0.3",
     "nanoid": "^5.1.7",
     "node-fetch": "^3.3.2",
@@ -26,6 +26,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@types/aws-lambda": "^8.10.161",
     "@types/ioredis": "^5.0.0",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/node": "^20.0.0",

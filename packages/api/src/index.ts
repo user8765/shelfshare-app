@@ -1,5 +1,7 @@
 import Fastify from 'fastify';
 import cors from '@fastify/cors';
+import awsLambdaFastify from '@fastify/aws-lambda';
+import type { Handler as LambdaHandler } from 'aws-lambda';
 import jwtPlugin from './plugins/jwt.js';
 import authRoutes from './routes/auth.js';
 import inviteRoutes from './routes/invites.js';
@@ -9,9 +11,8 @@ import communityRoutes from './routes/communities.js';
 import discoverRoutes from './routes/discover.js';
 import borrowRoutes from './routes/borrow.js';
 import messageRoutes from './routes/messages.js';
-import { initWsRelay } from './messaging/wsRelay.js';
 
-async function main() {
+async function buildApp() {
   const app = Fastify({ logger: true });
 
   await app.register(cors, { origin: '*' });
@@ -26,16 +27,20 @@ async function main() {
   await app.register(borrowRoutes);
   await app.register(messageRoutes);
 
-  // Start Redis → WebSocket relay if WS endpoint configured
-  const wsEndpoint = process.env['WS_MANAGEMENT_ENDPOINT'];
-  if (wsEndpoint) initWsRelay(wsEndpoint);
-
   app.get('/health', async () => ({ status: 'ok' }));
 
-  await app.listen({ port: 3000, host: '0.0.0.0' });
+  return app;
 }
 
-main().catch((err) => {
-  console.error(err);
-  process.exit(1);
-});
+// Lambda handler — proxy is initialised once and reused across warm invocations
+const appPromise = buildApp().then((app) => awsLambdaFastify(app));
+
+export const handler: LambdaHandler = async (event, context) => {
+  const proxy = await appPromise;
+  return proxy(event, context);
+};
+
+// Local dev server
+if (process.env['NODE_ENV'] !== 'production') {
+  void buildApp().then((app) => app.listen({ port: 3000, host: '0.0.0.0' }));
+}

@@ -2,9 +2,9 @@ import * as cdk from 'aws-cdk-lib';
 import * as ec2 from 'aws-cdk-lib/aws-ec2';
 import * as rds from 'aws-cdk-lib/aws-rds';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
-import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ses from 'aws-cdk-lib/aws-ses';
 import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as apigateway from 'aws-cdk-lib/aws-apigateway';
 import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
@@ -15,24 +15,22 @@ export class ShelfShareStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // VPC — single AZ, no NAT Gateway (saves ~$34/month for beta)
-    // Fargate runs in public subnet with assigned public IP
-    // Switch to 2 AZs + NAT Gateway for production
+    // VPC — single AZ, no NAT Gateway (beta cost optimisation)
     const vpc = new ec2.Vpc(this, 'Vpc', {
       maxAzs: 1,
       natGateways: 0,
       subnetConfiguration: [
-        { name: 'public', subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
+        { name: 'public',   subnetType: ec2.SubnetType.PUBLIC,           cidrMask: 24 },
         { name: 'isolated', subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
       ],
     });
 
-    // Aurora PostgreSQL Serverless v2 — min 0 ACU so it scales to zero when idle
+    // Aurora PostgreSQL Serverless v2 — min 0 ACU (scales to zero when idle)
     const dbCluster = new rds.DatabaseCluster(this, 'AuroraCluster', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
         version: rds.AuroraPostgresEngineVersion.VER_15_4,
       }),
-      serverlessV2MinCapacity: 0,   // scales to zero — saves ~$30/month for beta
+      serverlessV2MinCapacity: 0,
       serverlessV2MaxCapacity: 4,
       writer: rds.ClusterInstance.serverlessV2('writer'),
       vpc,
@@ -42,70 +40,88 @@ export class ShelfShareStack extends cdk.Stack {
       deletionProtection: false, // set true for prod
     });
 
-    // Redis — external (Redis Cloud free tier, 30MB, sufficient for beta)
-    // REDIS_URL stored in Secrets Manager, no ElastiCache resource needed
-    const redisSecret = new secretsmanager.Secret(this, 'RedisSecret', {
-      description: 'Redis Cloud connection URL for ShelfShare beta',
-    });
-
-    // SQS DLQ
-    const notificationsDlq = new sqs.Queue(this, 'NotificationsDlq', {
-      retentionPeriod: cdk.Duration.days(7),
-    });
-
-    // ECS Cluster
-    const cluster = new ecs.Cluster(this, 'Cluster', { vpc });
-
-    // SES — email sending identity (domain must be verified separately)
+    // SES — email sending identity
     new ses.EmailIdentity(this, 'SesIdentity', {
       identity: ses.Identity.domain('shelfshare.app'),
     });
 
-    // DB secret for Lambdas
+    // Secrets
     const dbSecret = new secretsmanager.Secret(this, 'DbSecret', {
       description: 'ShelfShare DB connection string',
     });
 
-    // Auto-expiry Lambda — runs hourly
-    const expiryFn = new lambda.Function(this, 'ExpiryLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset('../lambda/expiry/dist'),
-      vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
-      environment: {
-        DATABASE_URL: dbSecret.secretValue.unsafeUnwrap(),
-      },
-      timeout: cdk.Duration.seconds(30),
+    // SQS
+    const notificationsDlq = new sqs.Queue(this, 'NotificationsDlq', {
+      retentionPeriod: cdk.Duration.days(7),
     });
-    dbSecret.grantRead(expiryFn);
-
-    new events.Rule(this, 'ExpirySchedule', {
-      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
-      targets: [new targets.LambdaFunction(expiryFn)],
-    });
-
-    // Notifications Lambda — SQS consumer
     const notificationsQueue = new sqs.Queue(this, 'NotificationsQueue', {
       visibilityTimeout: cdk.Duration.seconds(30),
       deadLetterQueue: { queue: notificationsDlq, maxReceiveCount: 3 },
     });
 
+    // Shared Lambda env
+    const sharedEnv = {
+      DATABASE_URL:            dbSecret.secretValue.unsafeUnwrap(),
+      NOTIFICATIONS_QUEUE_URL: notificationsQueue.queueUrl,
+      NODE_ENV:                'production',
+    };
+
+    // API Lambda — Fastify via @fastify/aws-lambda
+    const apiFn = new lambda.Function(this, 'ApiLambda', {
+      runtime:     lambda.Runtime.NODEJS_20_X,
+      handler:     'index.handler',
+      code:        lambda.Code.fromAsset('../packages/api/dist'),
+      vpc,
+      vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
+      environment: {
+        ...sharedEnv,
+        JWT_SECRET:          process.env['JWT_SECRET'] ?? '',
+        GOOGLE_CLIENT_ID:    process.env['GOOGLE_CLIENT_ID'] ?? '',
+        GOOGLE_MAPS_API_KEY: process.env['GOOGLE_MAPS_API_KEY'] ?? '',
+      },
+      timeout:     cdk.Duration.seconds(30),
+      memorySize:  512,
+    });
+    dbSecret.grantRead(apiFn);
+    notificationsQueue.grantSendMessages(apiFn);
+
+    // API Gateway → API Lambda
+    const api = new apigateway.LambdaRestApi(this, 'ApiGateway', {
+      handler: apiFn,
+      proxy:   true,
+    });
+
+    // Auto-expiry Lambda — runs hourly
+    const expiryFn = new lambda.Function(this, 'ExpiryLambda', {
+      runtime:     lambda.Runtime.NODEJS_20_X,
+      handler:     'index.handler',
+      code:        lambda.Code.fromAsset('../lambda/expiry/dist'),
+      vpc,
+      vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
+      environment: { DATABASE_URL: dbSecret.secretValue.unsafeUnwrap() },
+      timeout:     cdk.Duration.seconds(30),
+    });
+    dbSecret.grantRead(expiryFn);
+    new events.Rule(this, 'ExpirySchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets:  [new targets.LambdaFunction(expiryFn)],
+    });
+
+    // Notifications Lambda — SQS consumer
     const notificationsFn = new lambda.Function(this, 'NotificationsLambda', {
-      runtime: lambda.Runtime.NODEJS_20_X,
-      handler: 'index.handler',
-      code: lambda.Code.fromAsset('../lambda/notifications/dist'),
+      runtime:     lambda.Runtime.NODEJS_20_X,
+      handler:     'index.handler',
+      code:        lambda.Code.fromAsset('../lambda/notifications/dist'),
       environment: { SES_FROM_EMAIL: 'noreply@shelfshare.app' },
-      timeout: cdk.Duration.seconds(30),
+      timeout:     cdk.Duration.seconds(30),
     });
     notificationsFn.addEventSource(
       new lambdaEventSources.SqsEventSource(notificationsQueue, { batchSize: 10 }),
     );
 
     // Outputs
-    new cdk.CfnOutput(this, 'DbClusterEndpoint', { value: dbCluster.clusterEndpoint.hostname });
-    new cdk.CfnOutput(this, 'EcsClusterName', { value: cluster.clusterName });
+    new cdk.CfnOutput(this, 'ApiUrl',              { value: api.url });
+    new cdk.CfnOutput(this, 'DbClusterEndpoint',   { value: dbCluster.clusterEndpoint.hostname });
     new cdk.CfnOutput(this, 'NotificationsQueueUrl', { value: notificationsQueue.queueUrl });
-    new cdk.CfnOutput(this, 'RedisSecretArn', { value: redisSecret.secretArn });
   }
 }
