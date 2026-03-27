@@ -8,6 +8,8 @@ import bookRoutes from './routes/books.js';
 import communityRoutes from './routes/communities.js';
 import discoverRoutes from './routes/discover.js';
 import borrowRoutes from './routes/borrow.js';
+import messageRoutes from './routes/messages.js';
+import { initWsRelay } from './messaging/wsRelay.js';
 
 async function main() {
   const app = Fastify({ logger: true });
@@ -22,6 +24,11 @@ async function main() {
   await app.register(communityRoutes);
   await app.register(discoverRoutes);
   await app.register(borrowRoutes);
+  await app.register(messageRoutes);
+
+  // Start Redis → WebSocket relay if WS endpoint configured
+  const wsEndpoint = process.env['WS_MANAGEMENT_ENDPOINT'];
+  if (wsEndpoint) initWsRelay(wsEndpoint);
 
   app.get('/health', async () => ({ status: 'ok' }));
 
