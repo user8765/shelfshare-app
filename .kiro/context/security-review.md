@@ -90,3 +90,27 @@ Fix: add `expires_at` to communities or add a rotate-invite endpoint.
 | 14 | Low | Community invite codes never expire | Small |
 | 15 | Low | JWT algorithm not pinned | Trivial |
 | 16 | Low | No pagination | Medium |
+
+---
+
+## Authentication Deep-Dive (Round 2)
+
+**A1. ✅ FIXED — Existing users bypass invite gate**
+The `catch` block on `redeemInvite` silently swallowed failed redemptions and issued a JWT anyway.
+Fix: returning users (existing `google_id`) skip the invite gate entirely — only new signups require an invite. Logic is now explicit and separate.
+
+**A2. ✅ FIXED — Invite redemption not atomic with account creation**
+`upsertUser` and `redeemInvite` ran sequentially with no transaction. A crash between them left orphaned accounts.
+Fix: new user signup wraps `upsertUser` + `redeemInvite` in a single DB transaction. Rollback on any failure.
+
+**A3. ✅ FIXED — No email domain restriction**
+Any Google account could attempt login. For closed beta this is a risk.
+Fix: optional `ALLOWED_EMAIL_DOMAINS` env var (comma-separated). If set, emails from other domains are rejected at token verification with 403.
+
+**A4. ✅ FIXED — JWT contains `email` claim, never re-validated**
+Stale email in JWT used for 7 days if user changes Google email.
+Fix: `email` removed from JWT payload entirely. JWT now contains only `sub` (user ID) and `tv` (token version).
+
+**A5. ✅ FIXED — No JWT revocation mechanism**
+No way to force-logout a user or invalidate compromised tokens before 7-day expiry.
+Fix: added `token_version` column to `users` table (`migration 008`). JWT includes `tv` claim. On every request, middleware verifies `tv` matches DB value. Increment `token_version` to instantly invalidate all tokens for a user.

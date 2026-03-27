@@ -1,4 +1,5 @@
 import { db } from '../db/client.js';
+import type { PoolClient } from 'pg';
 import { nanoid } from 'nanoid';
 
 export async function createInvite(inviterId: string, inviteeEmail?: string) {
@@ -14,8 +15,10 @@ export async function createInvite(inviterId: string, inviteeEmail?: string) {
   return invite;
 }
 
-export async function redeemInvite(code: string, userId: string) {
-  const { rows } = await db.query<{ id: string }>(
+// Accepts an optional client for transactional use
+export async function redeemInvite(code: string, userId: string, client?: PoolClient) {
+  const q = client ?? db;
+  const { rows } = await (q as typeof db).query<{ id: string }>(
     `UPDATE invites
      SET used_by = $1
      WHERE code = $2

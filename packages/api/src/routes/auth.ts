@@ -1,7 +1,8 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
-import { verifyGoogleToken, upsertUser, signJwt, isFirstUser } from '../auth/service.js';
+import { verifyGoogleToken, upsertUser, signJwt, isFirstUser, isExistingUser } from '../auth/service.js';
 import { redeemInvite } from '../auth/invites.js';
+import { getDb } from '../db/client.js';
 
 const CallbackBody = z.object({
   idToken: z.string(),
@@ -15,26 +16,45 @@ const authRoutes: FastifyPluginAsync = async (app) => {
 
     const profile = await verifyGoogleToken(body.data.idToken);
 
-    // Invite gate — skip for very first user (bootstrapping)
+    // Returning user — just issue a new token, no invite needed
+    if (await isExistingUser(profile.googleId)) {
+      const user = await upsertUser(profile); // updates display_name/avatar
+      const token = await signJwt({ sub: user.id, tv: user.tokenVersion });
+      return reply.send({ token });
+    }
+
+    // New user — invite required (except bootstrapping first user)
     const firstUser = await isFirstUser();
     if (!firstUser) {
       if (!body.data.inviteCode) {
         return reply.status(403).send({ error: 'Invite code required' });
       }
-    }
 
-    const user = await upsertUser(profile);
-
-    // Redeem invite after account created (no-op if first user)
-    if (body.data.inviteCode) {
+      // Atomically create account + redeem invite
+      const pool = await getDb();
+      const client = await pool.connect();
       try {
-        await redeemInvite(body.data.inviteCode, user.id);
-      } catch {
-        // Invite invalid/expired — still allow login if account already existed
+        await client.query('BEGIN');
+        const user = await upsertUser(profile);
+        await redeemInvite(body.data.inviteCode, user.id, client);
+        await client.query('COMMIT');
+        const token = await signJwt({ sub: user.id, tv: user.tokenVersion });
+        return reply.send({ token });
+      } catch (err: unknown) {
+        await client.query('ROLLBACK');
+        const e = err as { message?: string };
+        if (e.message?.includes('Invalid or expired')) {
+          return reply.status(403).send({ error: 'Invalid or expired invite code' });
+        }
+        throw err;
+      } finally {
+        client.release();
       }
     }
 
-    const token = await signJwt({ sub: user.id, email: user.email });
+    // First user — no invite needed
+    const user = await upsertUser(profile);
+    const token = await signJwt({ sub: user.id, tv: user.tokenVersion });
     return reply.send({ token });
   });
 

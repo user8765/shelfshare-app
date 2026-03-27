@@ -12,6 +12,17 @@ export async function verifyGoogleToken(idToken: string) {
   const ticket = await googleClient.verifyIdToken({ idToken, audience: clientId });
   const payload = ticket.getPayload();
   if (!payload?.sub || !payload.email) throw new Error('Invalid Google token');
+
+  // Optional email domain allowlist — set ALLOWED_EMAIL_DOMAINS=gmail.com,company.com
+  const allowedDomains = process.env['ALLOWED_EMAIL_DOMAINS'];
+  if (allowedDomains) {
+    const domain = payload.email.split('@')[1];
+    const allowed = allowedDomains.split(',').map((d) => d.trim());
+    if (!domain || !allowed.includes(domain)) {
+      throw Object.assign(new Error('Email domain not allowed'), { statusCode: 403 });
+    }
+  }
+
   return {
     googleId: payload.sub,
     email: payload.email,
@@ -25,15 +36,23 @@ export async function isFirstUser(): Promise<boolean> {
   return parseInt(rows[0]?.count ?? '0', 10) === 0;
 }
 
+export async function isExistingUser(googleId: string): Promise<boolean> {
+  const { rows } = await db.query<{ id: string }>(
+    `SELECT id FROM users WHERE google_id = $1`,
+    [googleId],
+  );
+  return rows.length > 0;
+}
+
 export async function upsertUser(googleProfile: Awaited<ReturnType<typeof verifyGoogleToken>>) {
-  const { rows } = await db.query<{ id: string; email: string }>(
+  const { rows } = await db.query<{ id: string; email: string; tokenVersion: number }>(
     `INSERT INTO users (google_id, email, display_name, avatar_url)
      VALUES ($1, $2, $3, $4)
      ON CONFLICT (google_id) DO UPDATE
        SET display_name = EXCLUDED.display_name,
            avatar_url   = EXCLUDED.avatar_url,
            updated_at   = NOW()
-     RETURNING id, email`,
+     RETURNING id, email, token_version AS "tokenVersion"`,
     [googleProfile.googleId, googleProfile.email, googleProfile.displayName, googleProfile.avatarUrl],
   );
   const user = rows[0];
@@ -41,7 +60,6 @@ export async function upsertUser(googleProfile: Awaited<ReturnType<typeof verify
   return user;
 }
 
-export function signJwt(payload: JwtPayload): Promise<string>;
 export async function signJwt(payload: JwtPayload): Promise<string> {
   const { jwtSecret } = await getSecrets();
   return jwt.sign(payload, jwtSecret, { expiresIn: '7d', algorithm: 'HS256' });
