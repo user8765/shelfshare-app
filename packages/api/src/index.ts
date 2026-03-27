@@ -7,6 +7,7 @@ import userRoutes from './routes/users.js';
 import bookRoutes from './routes/books.js';
 import communityRoutes from './routes/communities.js';
 import discoverRoutes from './routes/discover.js';
+import borrowRoutes from './routes/borrow.js';
 
 async function main() {
   const app = Fastify({ logger: true });
@@ -20,6 +21,7 @@ async function main() {
   await app.register(bookRoutes);
   await app.register(communityRoutes);
   await app.register(discoverRoutes);
+  await app.register(borrowRoutes);
 
   app.get('/health', async () => ({ status: 'ok' }));
 

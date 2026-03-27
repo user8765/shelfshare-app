@@ -1,0 +1,17 @@
+{
+  "name": "expiry-lambda",
+  "version": "0.0.1",
+  "private": true,
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "pg": "^8.11.0"
+  },
+  "devDependencies": {
+    "@types/aws-lambda": "^8.10.140",
+    "@types/pg": "^8.11.0",
+    "typescript": "^5.4.5"
+  }
+}

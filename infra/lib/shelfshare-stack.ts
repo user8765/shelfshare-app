@@ -5,6 +5,10 @@ import * as elasticache from 'aws-cdk-lib/aws-elasticache';
 import * as sqs from 'aws-cdk-lib/aws-sqs';
 import * as ecs from 'aws-cdk-lib/aws-ecs';
 import * as ses from 'aws-cdk-lib/aws-ses';
+import * as lambda from 'aws-cdk-lib/aws-lambda';
+import * as events from 'aws-cdk-lib/aws-events';
+import * as targets from 'aws-cdk-lib/aws-events-targets';
+import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import { Construct } from 'constructs';
 
 export class ShelfShareStack extends cdk.Stack {
@@ -66,5 +70,31 @@ export class ShelfShareStack extends cdk.Stack {
     // Outputs
     new cdk.CfnOutput(this, 'DbClusterEndpoint', { value: dbCluster.clusterEndpoint.hostname });
     new cdk.CfnOutput(this, 'EcsClusterName', { value: cluster.clusterName });
+
+    // DB secret for Lambda
+    const dbSecret = new secretsmanager.Secret(this, 'DbSecret', {
+      description: 'ShelfShare DB connection string',
+    });
+
+    // Auto-expiry Lambda — runs hourly
+    const expiryFn = new lambda.Function(this, 'ExpiryLambda', {
+      runtime: lambda.Runtime.NODEJS_20_X,
+      handler: 'index.handler',
+      code: lambda.Code.fromAsset('../lambda/expiry/dist'),
+      vpc,
+      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_WITH_EGRESS },
+      environment: {
+        DATABASE_URL: dbSecret.secretValue.unsafeUnwrap(),
+      },
+      timeout: cdk.Duration.seconds(30),
+    });
+
+    dbSecret.grantRead(expiryFn);
+
+    // EventBridge rule — trigger every hour
+    new events.Rule(this, 'ExpirySchedule', {
+      schedule: events.Schedule.rate(cdk.Duration.hours(1)),
+      targets: [new targets.LambdaFunction(expiryFn)],
+    });
   }
 }
