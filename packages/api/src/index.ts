@@ -4,6 +4,7 @@ import jwtPlugin from './plugins/jwt.js';
 import authRoutes from './routes/auth.js';
 import inviteRoutes from './routes/invites.js';
 import userRoutes from './routes/users.js';
+import bookRoutes from './routes/books.js';
 
 async function main() {
   const app = Fastify({ logger: true });
@@ -14,6 +15,7 @@ async function main() {
   await app.register(authRoutes);
   await app.register(inviteRoutes);
   await app.register(userRoutes);
+  await app.register(bookRoutes);
 
   app.get('/health', async () => ({ status: 'ok' }));
 
