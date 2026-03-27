@@ -41,6 +41,8 @@ jobs:
           cd lambda/expiry && npm run build
           cd ../notifications && npm run build
           cd ../migrate && npm run build
+        env:
+          VITE_GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID }}
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4

@@ -9,6 +9,10 @@ import * as events from 'aws-cdk-lib/aws-events';
 import * as targets from 'aws-cdk-lib/aws-events-targets';
 import * as secretsmanager from 'aws-cdk-lib/aws-secretsmanager';
 import * as lambdaEventSources from 'aws-cdk-lib/aws-lambda-event-sources';
+import * as s3 from 'aws-cdk-lib/aws-s3';
+import * as s3deploy from 'aws-cdk-lib/aws-s3-deployment';
+import * as cloudfront from 'aws-cdk-lib/aws-cloudfront';
+import * as origins from 'aws-cdk-lib/aws-cloudfront-origins';
 import { Construct } from 'constructs';
 
 export class ShelfShareStack extends cdk.Stack {
@@ -132,9 +136,33 @@ export class ShelfShareStack extends cdk.Stack {
       new lambdaEventSources.SqsEventSource(notificationsQueue, { batchSize: 10 }),
     );
 
+    // Web — S3 + CloudFront
+    const webBucket = new s3.Bucket(this, 'WebBucket', {
+      blockPublicAccess: s3.BlockPublicAccess.BLOCK_ALL,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+      autoDeleteObjects: true,
+    });
+
+    const webDistribution = new cloudfront.Distribution(this, 'WebDistribution', {
+      defaultBehavior: {
+        origin: origins.S3BucketOrigin.withOriginAccessControl(webBucket),
+        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
+      },
+      defaultRootObject: 'index.html',
+      errorResponses: [{ httpStatus: 404, responseHttpStatus: 200, responsePagePath: '/index.html' }],
+    });
+
+    new s3deploy.BucketDeployment(this, 'WebDeploy', {
+      sources: [s3deploy.Source.asset('../packages/web/dist')],
+      destinationBucket: webBucket,
+      distribution: webDistribution,
+      distributionPaths: ['/*'],
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'ApiUrl',              { value: api.url });
     new cdk.CfnOutput(this, 'DbClusterEndpoint',   { value: dbCluster.clusterEndpoint.hostname });
     new cdk.CfnOutput(this, 'NotificationsQueueUrl', { value: notificationsQueue.queueUrl });
+    new cdk.CfnOutput(this, 'WebUrl',              { value: `https://${webDistribution.distributionDomainName}` });
   }
 }
