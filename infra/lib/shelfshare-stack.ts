@@ -100,7 +100,7 @@ export class ShelfShareStack extends cdk.Stack {
     });
     dbSecret.grantRead(migrateFn);
 
-    // Auto-expiry Lambda — runs hourly
+    new cdk.CfnOutput(this, 'MigrateLambdaName', { value: migrateFn.functionName });
     const expiryFn = new lambda.Function(this, 'ExpiryLambda', {
       runtime:     lambda.Runtime.NODEJS_20_X,
       handler:     'index.handler',

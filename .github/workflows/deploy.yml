@@ -5,7 +5,7 @@ on:
     branches: [master]
 
 permissions:
-  id-token: write   # required for OIDC auth to AWS
+  id-token: write
   contents: read
 
 jobs:
@@ -26,6 +26,7 @@ jobs:
         run: |
           cd lambda/expiry && npm ci
           cd ../notifications && npm ci
+          cd ../migrate && npm ci
 
       - name: Build shared package
         run: npm run build --workspace=packages/shared
@@ -39,6 +40,7 @@ jobs:
           npm run build --workspace=packages/web
           cd lambda/expiry && npm run build
           cd ../notifications && npm run build
+          cd ../migrate && npm run build
 
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
@@ -46,22 +48,28 @@ jobs:
           role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
           aws-region: ap-south-1
 
+      - name: CDK deploy
+        run: npx cdk deploy --app "npx ts-node bin/app.ts" --require-approval never
+        working-directory: infra
+        env:
+          GOOGLE_CLIENT_ID:      ${{ secrets.GOOGLE_CLIENT_ID }}
+          GOOGLE_MAPS_API_KEY:   ${{ secrets.GOOGLE_MAPS_API_KEY }}
+          ALLOWED_ORIGINS:       ${{ secrets.ALLOWED_ORIGINS }}
+          ALLOWED_EMAIL_DOMAINS: ${{ secrets.ALLOWED_EMAIL_DOMAINS }}
+
       - name: Run DB migrations via Lambda
         run: |
+          MIGRATE_FN=$(aws cloudformation describe-stacks \
+            --stack-name ShelfShareStack \
+            --region ap-south-1 \
+            --query "Stacks[0].Outputs[?OutputKey=='MigrateLambdaName'].OutputValue" \
+            --output text)
+          echo "Invoking: $MIGRATE_FN"
           aws lambda invoke \
-            --function-name ShelfShareStack-MigrateLambda \
+            --function-name "$MIGRATE_FN" \
             --payload '{}' \
             --cli-binary-format raw-in-base64-out \
             --region ap-south-1 \
             /tmp/migrate-result.json
           cat /tmp/migrate-result.json
           grep -q '"errorMessage"' /tmp/migrate-result.json && exit 1 || true
-
-      - name: CDK deploy
-        run: npx cdk deploy --app "npx ts-node bin/app.ts" --require-approval never
-        working-directory: infra
-        env:
-          GOOGLE_CLIENT_ID:    ${{ secrets.GOOGLE_CLIENT_ID }}
-          GOOGLE_MAPS_API_KEY: ${{ secrets.GOOGLE_MAPS_API_KEY }}
-          ALLOWED_ORIGINS:     ${{ secrets.ALLOWED_ORIGINS }}
-          ALLOWED_EMAIL_DOMAINS: ${{ secrets.ALLOWED_EMAIL_DOMAINS }}
