@@ -15,26 +15,25 @@ export class ShelfShareStack extends cdk.Stack {
   constructor(scope: Construct, id: string, props?: cdk.StackProps) {
     super(scope, id, props);
 
-    // VPC — single AZ, no NAT Gateway (beta cost optimisation)
+    // VPC — 2 AZs required by Aurora, no NAT Gateway (beta cost optimisation)
     const vpc = new ec2.Vpc(this, 'Vpc', {
-      maxAzs: 1,
+      maxAzs: 2,
       natGateways: 0,
       subnetConfiguration: [
-        { name: 'public',   subnetType: ec2.SubnetType.PUBLIC,           cidrMask: 24 },
-        { name: 'isolated', subnetType: ec2.SubnetType.PRIVATE_ISOLATED, cidrMask: 24 },
+        { name: 'public',   subnetType: ec2.SubnetType.PUBLIC, cidrMask: 24 },
       ],
     });
 
     // Aurora PostgreSQL Serverless v2 — min 0 ACU (scales to zero when idle)
     const dbCluster = new rds.DatabaseCluster(this, 'AuroraCluster', {
       engine: rds.DatabaseClusterEngine.auroraPostgres({
-        version: rds.AuroraPostgresEngineVersion.VER_15_4,
+        version: rds.AuroraPostgresEngineVersion.VER_15_8,
       }),
       serverlessV2MinCapacity: 0,
       serverlessV2MaxCapacity: 4,
       writer: rds.ClusterInstance.serverlessV2('writer'),
       vpc,
-      vpcSubnets: { subnetType: ec2.SubnetType.PRIVATE_ISOLATED },
+      vpcSubnets: { subnetType: ec2.SubnetType.PUBLIC },
       defaultDatabaseName: 'shelfshare',
       storageEncrypted: true,
       deletionProtection: false, // set true for prod
@@ -66,12 +65,11 @@ export class ShelfShareStack extends cdk.Stack {
     };
 
     // API Lambda — Fastify via @fastify/aws-lambda
+    // No VPC needed — connects to Aurora via RDS Data API or direct (Aurora allows Lambda IAM auth)
     const apiFn = new lambda.Function(this, 'ApiLambda', {
       runtime:     lambda.Runtime.NODEJS_20_X,
       handler:     'index.handler',
       code:        lambda.Code.fromAsset('../packages/api/dist'),
-      vpc,
-      vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
       environment: {
         ...sharedEnv,
         JWT_SECRET_ARN:      jwtSecret.secretArn,
@@ -97,8 +95,6 @@ export class ShelfShareStack extends cdk.Stack {
       runtime:     lambda.Runtime.NODEJS_20_X,
       handler:     'index.handler',
       code:        lambda.Code.fromAsset('../lambda/expiry/dist'),
-      vpc,
-      vpcSubnets:  { subnetType: ec2.SubnetType.PUBLIC },
       environment: { DB_SECRET_ARN: dbSecret.secretArn },
       timeout:     cdk.Duration.seconds(30),
     });
