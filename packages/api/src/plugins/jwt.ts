@@ -20,6 +20,7 @@ const jwtPlugin: FastifyPluginAsync = async (app) => {
 
   app.addHook('onRequest', async (req: FastifyRequest, reply) => {
     if (req.routeOptions.url?.startsWith('/auth')) return;
+    if (req.routeOptions.url === '/health') return;
 
     const header = req.headers.authorization;
     if (!header?.startsWith('Bearer ')) {

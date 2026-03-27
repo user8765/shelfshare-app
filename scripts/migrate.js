@@ -3,19 +3,15 @@
 // Usage: DATABASE_URL=... node scripts/migrate.js
 //        or: DB_SECRET_ARN=... node scripts/migrate.js  (AWS)
 
-import { readdir, readFile } from 'fs/promises';
-import { join, dirname } from 'path';
-import { fileURLToPath } from 'url';
-import pg from 'pg';
-
-const { Pool } = pg;
-const __dirname = dirname(fileURLToPath(import.meta.url));
+const { readdir, readFile } = require('fs/promises');
+const { join } = require('path');
+const { Pool } = require('pg');
 
 async function getConnectionString() {
   if (process.env.DATABASE_URL) return process.env.DATABASE_URL;
 
   if (process.env.DB_SECRET_ARN) {
-    const { SecretsManagerClient, GetSecretValueCommand } = await import('@aws-sdk/client-secrets-manager');
+    const { SecretsManagerClient, GetSecretValueCommand } = require('@aws-sdk/client-secrets-manager');
     const client = new SecretsManagerClient({});
     const res = await client.send(new GetSecretValueCommand({ SecretId: process.env.DB_SECRET_ARN }));
     if (!res.SecretString) throw new Error('DB secret is empty');
@@ -29,7 +25,7 @@ async function run() {
   const connectionString = await getConnectionString();
   const pool = new Pool({
     connectionString,
-    ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: true } : false,
+    ssl: { rejectUnauthorized: false },
   });
 
   const client = await pool.connect();
