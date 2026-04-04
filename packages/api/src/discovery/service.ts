@@ -29,8 +29,8 @@ export async function discoverBooks(params: DiscoverParams): Promise<Book[]> {
   const { currentUserId, q, lat, lng, communityId, includeSelf = false } = params;
   const radiusMeters = params.radiusMeters ?? DEFAULT_RADIUS_METERS;
 
-  const conditions: string[] = [`b.status = 'available' AND b.is_lendable = true`];
-  if (!includeSelf) conditions.push(`b.owner_id != $1`);
+  const conditions: string[] = [`b.status = 'available' AND b.is_lendable = true`, `$1::uuid IS NOT NULL`];
+  if (!includeSelf) conditions.push(`b.owner_id != $1::uuid`);
   const values: unknown[] = [currentUserId];
 
   // Full-text search
