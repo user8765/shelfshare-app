@@ -16,16 +16,6 @@ declare module 'fastify' {
 }
 
 const jwtPlugin: FastifyPluginAsync = async (app) => {
-  // Use getter/setter so Fastify allows per-request mutation of an object type
-  app.decorateRequest('user', {
-    getter(this: FastifyRequest) {
-      return (this as unknown as Record<string, JwtPayload>)['_jwtUser'] ?? { sub: '', tv: 0 };
-    },
-    setter(this: FastifyRequest, val: JwtPayload) {
-      (this as unknown as Record<string, JwtPayload>)['_jwtUser'] = val;
-    },
-  });
-
   app.addHook('onRequest', async (req: FastifyRequest, reply) => {
     if (req.routeOptions.url?.startsWith('/auth')) return;
     if (req.routeOptions.url === '/health') return;
@@ -40,7 +30,6 @@ const jwtPlugin: FastifyPluginAsync = async (app) => {
       const { jwtSecret } = await getSecrets();
       const payload = jwt.verify(token, jwtSecret, { algorithms: ['HS256'] }) as JwtPayload;
 
-      // Verify token version matches DB — allows server-side revocation
       const pool = await getDb();
       const { rows } = await pool.query<{ tokenVersion: number }>(
         `SELECT token_version AS "tokenVersion" FROM users WHERE id = $1`,
@@ -50,7 +39,7 @@ const jwtPlugin: FastifyPluginAsync = async (app) => {
         return reply.status(401).send({ error: 'Unauthorized' });
       }
 
-      req.user = payload;
+      (req as unknown as Record<string, unknown>)['user'] = payload;
     } catch (err) {
       req.log.warn({ err }, 'JWT verification failed');
       return reply.status(401).send({ error: 'Unauthorized' });
