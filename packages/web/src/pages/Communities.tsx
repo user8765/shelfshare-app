@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { api } from '../api/client';
 import type { Community } from '@shelfshare/shared';
 import s from './Communities.module.css';
@@ -10,6 +10,10 @@ export default function Communities() {
   const [name, setName] = useState('');
   const [inviteCode, setInviteCode] = useState('');
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    api.get<Community[]>('/communities').then(setJoined).catch(() => {});
+  }, []);
 
   async function create(e: React.FormEvent) {
     e.preventDefault();
