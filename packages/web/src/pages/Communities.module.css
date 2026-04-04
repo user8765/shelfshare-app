@@ -8,8 +8,15 @@
 .empty     { color: #999; text-align: center; margin-top: 40px; }
 .list      { list-style: none; padding: 0; margin: 0; }
 .card      { display: flex; flex-direction: column; gap: 4px; padding: 16px; border-bottom: 1px solid #f0f0f0; }
-.name      { font-weight: 600; font-size: 15px; }
-.code      { font-size: 13px; color: #666; }
+.cardHeader { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; }
+.name      { font-weight: 600; font-size: 15px; display: block; }
+.code      { font-size: 13px; color: #666; display: block; }
+.expandBtn { background: none; border: none; color: #4285F4; font-size: 13px; cursor: pointer; white-space: nowrap; padding: 0; }
+.bookList  { margin-top: 12px; border-top: 1px solid #f0f0f0; padding-top: 10px; display: flex; flex-direction: column; gap: 8px; }
+.bookRow   { display: flex; flex-direction: column; gap: 2px; }
+.bookTitle { font-size: 14px; font-weight: 500; }
+.bookSub   { font-size: 12px; color: #888; }
+.bookEmpty { font-size: 13px; color: #999; margin: 0; }
 .overlay   { position: fixed; inset: 0; background: rgba(0,0,0,0.4); display: flex; align-items: center; justify-content: center; z-index: 100; }
 .modal     { background: #fff; border-radius: 12px; padding: 28px; width: 100%; max-width: 400px; }
 .modal h3  { margin: 0 0 20px; }
