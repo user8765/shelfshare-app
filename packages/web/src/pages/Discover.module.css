@@ -1,6 +1,7 @@
 .container  { padding: 24px; max-width: 720px; margin: 0 auto; }
 .searchRow  { display: flex; gap: 8px; margin-bottom: 16px; }
 .input      { flex: 1; border: 1px solid #ddd; border-radius: 8px; padding: 10px 12px; font-size: 15px; }
+.select     { border: 1px solid #ddd; border-radius: 8px; padding: 10px 8px; font-size: 14px; background: #fff; cursor: pointer; }
 .searchBtn  { background: #4285F4; color: #fff; border: none; border-radius: 8px; padding: 10px 20px; font-weight: 600; cursor: pointer; }
 .error      { color: #ef4444; margin-bottom: 12px; }
 .empty      { color: #999; text-align: center; margin-top: 40px; }

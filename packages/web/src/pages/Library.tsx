@@ -47,6 +47,11 @@ export default function Library() {
     } catch (err: unknown) { setError((err as { message?: string }).message ?? 'Failed to add'); }
   }
 
+  async function toggleLendable(book: Book) {
+    try { await api.patch(`/books/${book.id}`, { isLendable: !book.isLendable }); load(); }
+    catch (err: unknown) { setError((err as { message?: string }).message ?? 'Failed to update'); }
+  }
+
   async function deleteBook(id: string) {
     if (!confirm('Remove this book?')) return;
     try { await api.delete(`/books/${id}`); load(); }
@@ -73,9 +78,20 @@ export default function Library() {
                   {b.status.replace('_', ' ')}
                 </span>
               </div>
-              {b.status !== 'lent_out' && (
-                <button className={s.deleteBtn} onClick={() => deleteBook(b.id)}>×</button>
-              )}
+              <div className={s.actions}>
+                {b.status !== 'lent_out' && (
+                  <button
+                    className={b.isLendable ? s.lendableBtn : s.notLendableBtn}
+                    onClick={() => toggleLendable(b)}
+                    title={b.isLendable ? 'Mark as not lendable' : 'Mark as lendable'}
+                  >
+                    {b.isLendable ? 'Lendable' : 'Not lendable'}
+                  </button>
+                )}
+                {b.status !== 'lent_out' && (
+                  <button className={s.deleteBtn} onClick={() => deleteBook(b.id)}>×</button>
+                )}
+              </div>
             </li>
           ))}
         </ul>

@@ -1,13 +1,25 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { api } from '../api/client';
-import type { Book } from '@shelfshare/shared';
+import type { Book, Community } from '@shelfshare/shared';
 import s from './Discover.module.css';
 
 export default function Discover() {
   const [books, setBooks] = useState<Book[]>([]);
+  const [communities, setCommunities] = useState<Community[]>([]);
+  const [communityId, setCommunityId] = useState('');
   const [q, setQ] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [locError, setLocError] = useState('');
+  const coords = useRef<{ lat: number; lng: number } | null>(null);
+
+  useEffect(() => {
+    api.get<Community[]>('/communities').then(setCommunities).catch(() => {});
+    navigator.geolocation.getCurrentPosition(
+      pos => { coords.current = { lat: pos.coords.latitude, lng: pos.coords.longitude }; search(); },
+      () => { setLocError('Location unavailable — enable location permission to discover nearby books.'); },
+    );
+  }, []);
 
   async function search() {
     setLoading(true);
@@ -15,12 +27,15 @@ export default function Discover() {
     try {
       const params = new URLSearchParams();
       if (q) params.set('q', q);
+      if (coords.current) {
+        params.set('lat', String(coords.current.lat));
+        params.set('lng', String(coords.current.lng));
+      }
+      if (communityId) params.set('communityId', communityId);
       setBooks(await api.get<Book[]>(`/discover?${params}`));
     } catch (err: unknown) { setError((err as { message?: string }).message ?? 'Search failed'); }
     finally { setLoading(false); }
   }
-
-  useEffect(() => { search(); }, []);
 
   async function requestBorrow(bookId: string) {
     try {
@@ -40,8 +55,15 @@ export default function Discover() {
           onChange={e => setQ(e.target.value)}
           onKeyDown={e => e.key === 'Enter' && search()}
         />
+        {communities.length > 0 && (
+          <select className={s.select} value={communityId} onChange={e => setCommunityId(e.target.value)}>
+            <option value="">Nearby</option>
+            {communities.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </select>
+        )}
         <button className={s.searchBtn} onClick={search}>Search</button>
       </div>
+      {locError && <p className={s.error}>{locError}</p>}
       {error && <p className={s.error}>{error}</p>}
       {loading ? <p className={s.empty}>Loading…</p> : books.length === 0 ? (
         <p className={s.empty}>No books found. Try a search or join a community.</p>

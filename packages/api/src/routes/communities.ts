@@ -2,11 +2,16 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 import {
   createCommunity, getCommunityById, updateCommunity,
-  joinCommunity, getMembers, updateMember, removeMember, getMemberRole,
+  joinCommunity, getMembers, updateMember, removeMember, getMemberRole, getUserCommunities,
 } from '../communities/service.js';
 import { requireCommunityAdmin } from '../communities/middleware.js';
 
 const communityRoutes: FastifyPluginAsync = async (app) => {
+  // GET /communities — my communities
+  app.get('/communities', async (req) => {
+    return getUserCommunities(req.user.sub);
+  });
+
   // POST /communities
   app.post('/communities', async (req, reply) => {
     const body = z.object({ name: z.string().min(1), description: z.string().optional() }).safeParse(req.body);

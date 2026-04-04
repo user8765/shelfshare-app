@@ -128,3 +128,15 @@ export async function getMemberRole(communityId: string, userId: string): Promis
   );
   return rows[0]?.role ?? null;
 }
+
+export async function getUserCommunities(userId: string): Promise<Community[]> {
+  const { rows } = await db.query<Community>(
+    `SELECT c.id, c.name, c.description, c.invite_code AS "inviteCode", c.created_by AS "createdBy", c.created_at AS "createdAt"
+     FROM communities c
+     JOIN community_members cm ON cm.community_id = c.id
+     WHERE cm.user_id = $1
+     ORDER BY c.name`,
+    [userId],
+  );
+  return rows;
+}
