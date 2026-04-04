@@ -41,14 +41,13 @@ export async function discoverBooks(params: DiscoverParams): Promise<Book[]> {
 
   // Visibility filter
   if (communityId && lat !== undefined && lng !== undefined) {
-    // both: radius OR community
     values.push(communityId);
     const cidIdx = values.length;
     values.push(lng, lat, radiusMeters);
     const lngIdx = cidIdx + 1, latIdx = cidIdx + 2, rIdx = cidIdx + 3;
     conditions.push(`(
       (b.visibility IN ('community','both') AND EXISTS (
-        SELECT 1 FROM book_communities bc WHERE bc.book_id = b.id AND bc.community_id = $${cidIdx}
+        SELECT 1 FROM community_members cm WHERE cm.community_id = $${cidIdx} AND cm.user_id = b.owner_id
       ))
       OR
       (b.visibility IN ('radius','both') AND ST_DWithin(
@@ -58,7 +57,7 @@ export async function discoverBooks(params: DiscoverParams): Promise<Book[]> {
   } else if (communityId) {
     values.push(communityId);
     conditions.push(`b.visibility IN ('community','both') AND EXISTS (
-      SELECT 1 FROM book_communities bc WHERE bc.book_id = b.id AND bc.community_id = $${values.length}
+      SELECT 1 FROM community_members cm WHERE cm.community_id = $${values.length} AND cm.user_id = b.owner_id
     )`);
   } else if (lat !== undefined && lng !== undefined) {
     values.push(lng, lat, radiusMeters);
