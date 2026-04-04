@@ -47,7 +47,7 @@ export default function Borrows() {
           {requests.map(r => (
             <li key={r.id} className={s.card}>
               <div className={s.info}>
-                <span className={s.bookId}>Book: {r.bookId.slice(0, 8)}…</span>
+                <span className={s.bookId}>{r.bookTitle}</span>
                 <span className={s.badge} style={{ background: STATUS_COLOR[r.status] ?? '#9ca3af' }}>{r.status}</span>
                 {r.dueDate && <span className={s.due}>Due: {r.dueDate}</span>}
               </div>

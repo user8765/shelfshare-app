@@ -37,6 +37,7 @@ export interface Book {
 export interface BorrowRequest {
   id: string;
   bookId: string;
+  bookTitle: string;
   requesterId: string;
   status: BorrowRequestStatus;
   dueDate: string | null;

@@ -3,12 +3,14 @@ import { enqueueNotification } from '../notifications/publisher.js';
 import type { BorrowRequest, BorrowRequestStatus } from '@shelfshare/shared';
 
 const BR_SELECT = `
-  id, book_id AS "bookId", requester_id AS "requesterId", status,
-  due_date AS "dueDate", proposed_due_date AS "proposedDueDate",
-  extension_proposed_by AS "extensionProposedBy",
-  request_expires_at AS "requestExpiresAt",
-  created_at AS "createdAt", updated_at AS "updatedAt"
+  br.id, br.book_id AS "bookId", b.title AS "bookTitle", br.requester_id AS "requesterId", br.status,
+  br.due_date AS "dueDate", br.proposed_due_date AS "proposedDueDate",
+  br.extension_proposed_by AS "extensionProposedBy",
+  br.request_expires_at AS "requestExpiresAt",
+  br.created_at AS "createdAt", br.updated_at AS "updatedAt"
 `;
+
+const BR_FROM = `FROM borrow_requests br JOIN books b ON b.id = br.book_id`;
 
 interface NotifContext {
   bookTitle: string;
@@ -54,9 +56,12 @@ export async function createBorrowRequest(bookId: string, requesterId: string): 
 
     const expiryHours = await getExpiryHours();
     const { rows } = await client.query<BorrowRequest>(
-      `INSERT INTO borrow_requests (book_id, requester_id, request_expires_at)
-       VALUES ($1, $2, NOW() + ($3 || ' hours')::interval)
-       RETURNING ${BR_SELECT}`,
+      `WITH ins AS (
+         INSERT INTO borrow_requests (book_id, requester_id, request_expires_at)
+         VALUES ($1, $2, NOW() + ($3 || ' hours')::interval)
+         RETURNING *
+       )
+       SELECT ${BR_SELECT} FROM ins br JOIN books b ON b.id = br.book_id`,
       [bookId, requesterId, expiryHours],
     );
     const request = rows[0];
@@ -88,42 +93,18 @@ export async function getBorrowRequests(
   userId: string,
   role: 'owner' | 'borrower',
 ): Promise<BorrowRequest[]> {
-  const query =
-    role === 'owner'
-      ? `SELECT br.${BR_SELECT.replace(/\n/g, '')}
-         FROM borrow_requests br
-         JOIN books b ON b.id = br.book_id
-         WHERE b.owner_id = $1
-         ORDER BY br.created_at DESC`
-      : `SELECT ${BR_SELECT}
-         FROM borrow_requests
-         WHERE requester_id = $1
-         ORDER BY created_at DESC`;
-
+  const where = role === 'owner' ? `b.owner_id = $1` : `br.requester_id = $1`;
   const { rows } = await db.query<BorrowRequest>(
-    role === 'owner'
-      ? `SELECT br.id, br.book_id AS "bookId", br.requester_id AS "requesterId", br.status,
-                br.due_date AS "dueDate", br.proposed_due_date AS "proposedDueDate",
-                br.extension_proposed_by AS "extensionProposedBy",
-                br.request_expires_at AS "requestExpiresAt",
-                br.created_at AS "createdAt", br.updated_at AS "updatedAt"
-         FROM borrow_requests br
-         JOIN books b ON b.id = br.book_id
-         WHERE b.owner_id = $1
-         ORDER BY br.created_at DESC`
-      : `SELECT ${BR_SELECT} FROM borrow_requests WHERE requester_id = $1 ORDER BY created_at DESC`,
+    `SELECT ${BR_SELECT} ${BR_FROM} WHERE ${where} ORDER BY br.created_at DESC`,
     [userId],
   );
-  // suppress unused variable warning
-  void query;
   return rows;
 }
 
 export async function getBorrowRequestById(id: string, userId: string): Promise<BorrowRequest | null> {
   const { rows } = await db.query<BorrowRequest>(
-    `SELECT ${BR_SELECT} FROM borrow_requests
-     WHERE id = $1
-       AND (requester_id = $2 OR book_id IN (SELECT id FROM books WHERE owner_id = $2))`,
+    `SELECT ${BR_SELECT} ${BR_FROM}
+     WHERE br.id = $1 AND (br.requester_id = $2 OR b.owner_id = $2)`,
     [id, userId],
   );
   return rows[0] ?? null;
@@ -145,8 +126,11 @@ export async function acceptRequest(id: string, ownerId: string, dueDate: string
     if (!check[0]) throw Object.assign(new Error('Request not found or not actionable'), { statusCode: 404 });
 
     const { rows } = await client.query<BorrowRequest>(
-      `UPDATE borrow_requests SET status = 'accepted', due_date = $2, updated_at = NOW()
-       WHERE id = $1 RETURNING ${BR_SELECT}`,
+      `WITH upd AS (
+         UPDATE borrow_requests SET status = 'accepted', due_date = $2, updated_at = NOW()
+         WHERE id = $1 RETURNING *
+       )
+       SELECT ${BR_SELECT} FROM upd br JOIN books b ON b.id = br.book_id`,
       [id, dueDate],
     );
 
@@ -191,8 +175,11 @@ export async function declineRequest(id: string, ownerId: string): Promise<Borro
     if (!check[0]) throw Object.assign(new Error('Request not found or not actionable'), { statusCode: 404 });
 
     const { rows } = await client.query<BorrowRequest>(
-      `UPDATE borrow_requests SET status = 'declined', updated_at = NOW()
-       WHERE id = $1 RETURNING ${BR_SELECT}`,
+      `WITH upd AS (
+         UPDATE borrow_requests SET status = 'declined', updated_at = NOW()
+         WHERE id = $1 RETURNING *
+       )
+       SELECT ${BR_SELECT} FROM upd br JOIN books b ON b.id = br.book_id`,
       [id],
     );
 
@@ -239,8 +226,11 @@ export async function markReturned(id: string, userId: string): Promise<BorrowRe
     if (!check[0]) throw Object.assign(new Error('Request not found or not actionable'), { statusCode: 404 });
 
     const { rows } = await client.query<BorrowRequest>(
-      `UPDATE borrow_requests SET status = 'returned', updated_at = NOW()
-       WHERE id = $1 RETURNING ${BR_SELECT}`,
+      `WITH upd AS (
+         UPDATE borrow_requests SET status = 'returned', updated_at = NOW()
+         WHERE id = $1 RETURNING *
+       )
+       SELECT ${BR_SELECT} FROM upd br JOIN books b ON b.id = br.book_id`,
       [id],
     );
 
@@ -261,12 +251,15 @@ export async function markReturned(id: string, userId: string): Promise<BorrowRe
 
 export async function proposeExtension(id: string, userId: string, proposedDueDate: string): Promise<BorrowRequest> {
   const { rows } = await db.query<BorrowRequest>(
-    `UPDATE borrow_requests
-     SET proposed_due_date = $2, extension_proposed_by = $3, updated_at = NOW()
-     WHERE id = $1
-       AND status = 'accepted'
-       AND (requester_id = $3 OR book_id IN (SELECT id FROM books WHERE owner_id = $3))
-     RETURNING ${BR_SELECT}`,
+    `WITH upd AS (
+       UPDATE borrow_requests
+       SET proposed_due_date = $2, extension_proposed_by = $3, updated_at = NOW()
+       WHERE id = $1
+         AND status = 'accepted'
+         AND (requester_id = $3 OR book_id IN (SELECT id FROM books WHERE owner_id = $3))
+       RETURNING *
+     )
+     SELECT ${BR_SELECT} FROM upd br JOIN books b ON b.id = br.book_id`,
     [id, proposedDueDate, userId],
   );
   if (!rows[0]) throw Object.assign(new Error('Request not found or not actionable'), { statusCode: 404 });
@@ -274,19 +267,21 @@ export async function proposeExtension(id: string, userId: string, proposedDueDa
 }
 
 export async function confirmExtension(id: string, userId: string): Promise<BorrowRequest> {
-  // The confirmer must be the OTHER party (not the proposer)
   const { rows } = await db.query<BorrowRequest>(
-    `UPDATE borrow_requests
-     SET due_date = proposed_due_date,
-         proposed_due_date = NULL,
-         extension_proposed_by = NULL,
-         updated_at = NOW()
-     WHERE id = $1
-       AND status = 'accepted'
-       AND proposed_due_date IS NOT NULL
-       AND extension_proposed_by != $2
-       AND (requester_id = $2 OR book_id IN (SELECT id FROM books WHERE owner_id = $2))
-     RETURNING ${BR_SELECT}`,
+    `WITH upd AS (
+       UPDATE borrow_requests
+       SET due_date = proposed_due_date,
+           proposed_due_date = NULL,
+           extension_proposed_by = NULL,
+           updated_at = NOW()
+       WHERE id = $1
+         AND status = 'accepted'
+         AND proposed_due_date IS NOT NULL
+         AND extension_proposed_by != $2
+         AND (requester_id = $2 OR book_id IN (SELECT id FROM books WHERE owner_id = $2))
+       RETURNING *
+     )
+     SELECT ${BR_SELECT} FROM upd br JOIN books b ON b.id = br.book_id`,
     [id, userId],
   );
   if (!rows[0]) throw Object.assign(new Error('Request not found or not actionable'), { statusCode: 404 });
