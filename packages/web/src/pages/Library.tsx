@@ -52,6 +52,11 @@ export default function Library() {
     catch (err: unknown) { setError((err as { message?: string }).message ?? 'Failed to update'); }
   }
 
+  async function setVisibility(book: Book, visibility: string) {
+    try { await api.patch(`/books/${book.id}`, { visibility }); load(); }
+    catch (err: unknown) { setError((err as { message?: string }).message ?? 'Failed to update'); }
+  }
+
   async function deleteBook(id: string) {
     if (!confirm('Remove this book?')) return;
     try { await api.delete(`/books/${id}`); load(); }
@@ -87,6 +92,19 @@ export default function Library() {
                   >
                     {b.isLendable ? 'Lendable' : 'Not lendable'}
                   </button>
+                )}
+                {b.status !== 'lent_out' && (
+                  <select
+                    className={s.visibilitySelect}
+                    value={b.visibility}
+                    onChange={e => setVisibility(b, e.target.value)}
+                    title="Who can discover this book"
+                  >
+                    <option value="radius">Nearby</option>
+                    <option value="community">Community</option>
+                    <option value="both">Both</option>
+                    <option value="private">Private</option>
+                  </select>
                 )}
                 {b.status !== 'lent_out' && (
                   <button className={s.deleteBtn} onClick={() => deleteBook(b.id)}>×</button>
