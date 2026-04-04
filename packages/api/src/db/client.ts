@@ -8,6 +8,7 @@ export async function getDb(): Promise<Pool> {
   const { databaseUrl } = await getSecrets();
   _db = new Pool({
     connectionString: databaseUrl,
+    // TODO(prod): bundle AWS RDS CA cert and set rejectUnauthorized: true
     ssl: process.env['NODE_ENV'] === 'production' ? { rejectUnauthorized: false } : false,
   });
   return _db;
