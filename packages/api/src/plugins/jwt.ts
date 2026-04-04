@@ -16,7 +16,15 @@ declare module 'fastify' {
 }
 
 const jwtPlugin: FastifyPluginAsync = async (app) => {
-  app.decorateRequest('user', { getter: () => ({ sub: '', tv: 0 }) });
+  // Use getter/setter so Fastify allows per-request mutation of an object type
+  app.decorateRequest('user', {
+    getter(this: FastifyRequest) {
+      return (this as unknown as Record<string, JwtPayload>)['_jwtUser'] ?? { sub: '', tv: 0 };
+    },
+    setter(this: FastifyRequest, val: JwtPayload) {
+      (this as unknown as Record<string, JwtPayload>)['_jwtUser'] = val;
+    },
+  });
 
   app.addHook('onRequest', async (req: FastifyRequest, reply) => {
     if (req.routeOptions.url?.startsWith('/auth')) return;
@@ -43,7 +51,8 @@ const jwtPlugin: FastifyPluginAsync = async (app) => {
       }
 
       req.user = payload;
-    } catch {
+    } catch (err) {
+      req.log.warn({ err }, 'JWT verification failed');
       return reply.status(401).send({ error: 'Unauthorized' });
     }
   });
