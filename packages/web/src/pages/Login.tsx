@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { api, setToken } from '../api/client';
 import s from './Login.module.css';
@@ -17,17 +17,16 @@ export default function Login() {
   const [inviteCode, setInviteCode] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const inviteCodeRef = useRef('');
 
-  function handleGoogleSignIn() {
-    setError('');
-    setLoading(true);
+  useEffect(() => {
     google.accounts.id.initialize({
       client_id: import.meta.env['VITE_GOOGLE_CLIENT_ID'] as string,
       callback: async ({ credential }) => {
         try {
           const res = await api.post<{ token: string }>('/auth/google/callback', {
             idToken: credential,
-            inviteCode: inviteCode.trim() || undefined,
+            inviteCode: inviteCodeRef.current.trim() || undefined,
           });
           setToken(res.token);
           navigate('/discover');
@@ -38,6 +37,11 @@ export default function Login() {
         }
       },
     });
+  }, []);
+
+  function handleGoogleSignIn() {
+    setError('');
+    setLoading(true);
     google.accounts.id.prompt();
   }
 
@@ -49,7 +53,7 @@ export default function Login() {
         className={s.input}
         placeholder="Invite code (required for new users)"
         value={inviteCode}
-        onChange={e => setInviteCode(e.target.value)}
+        onChange={e => { setInviteCode(e.target.value); inviteCodeRef.current = e.target.value; }}
       />
       {error && <p className={s.error}>{error}</p>}
       <button className={s.button} onClick={handleGoogleSignIn} disabled={loading}>
