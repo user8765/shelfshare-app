@@ -14,10 +14,10 @@ declare const google: {
 
 export default function Login() {
   const navigate = useNavigate();
-  const [inviteCode, setInviteCode] = useState('');
+  const [inviteCode, setInviteCode] = useState(() => new URLSearchParams(window.location.search).get('invite') ?? '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const inviteCodeRef = useRef('');
+  const inviteCodeRef = useRef(new URLSearchParams(window.location.search).get('invite') ?? '');
 
   useEffect(() => {
     google.accounts.id.initialize({
