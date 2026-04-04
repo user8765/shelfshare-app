@@ -15,9 +15,11 @@ export interface AppSecrets {
 }
 
 let cached: AppSecrets | null = null;
+let cachedAt = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // re-fetch every 5 min so all instances converge after rotation
 
 export async function getSecrets(): Promise<AppSecrets> {
-  if (cached) return cached;
+  if (cached && Date.now() - cachedAt < CACHE_TTL_MS) return cached;
 
   const isLambda = !!process.env['AWS_LAMBDA_FUNCTION_NAME'];
 
@@ -30,7 +32,6 @@ export async function getSecrets(): Promise<AppSecrets> {
       jwtSecret:   await fetchSecret(jwtArn),
     };
   } else {
-    // Local dev — fall back to env vars
     const databaseUrl = process.env['DATABASE_URL'];
     const jwtSecret   = process.env['JWT_SECRET'];
     if (!databaseUrl) throw new Error('DATABASE_URL not set');
@@ -38,5 +39,6 @@ export async function getSecrets(): Promise<AppSecrets> {
     cached = { databaseUrl, jwtSecret };
   }
 
+  cachedAt = Date.now();
   return cached;
 }
