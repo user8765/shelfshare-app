@@ -8,7 +8,7 @@ export async function getDb(): Promise<Pool> {
   const { databaseUrl } = await getSecrets();
   _db = new Pool({
     connectionString: databaseUrl,
-    ssl: process.env['NODE_ENV'] === 'production' ? { rejectUnauthorized: true } : false,
+    ssl: process.env['NODE_ENV'] === 'production' ? { rejectUnauthorized: false } : false,
   });
   return _db;
 }
