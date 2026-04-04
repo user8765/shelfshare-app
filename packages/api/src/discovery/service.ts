@@ -22,13 +22,15 @@ export interface DiscoverParams {
   lng?: number | undefined;
   radiusMeters?: number | undefined;
   communityId?: string | undefined;
+  includeSelf?: boolean | undefined;
 }
 
 export async function discoverBooks(params: DiscoverParams): Promise<Book[]> {
-  const { currentUserId, q, lat, lng, communityId } = params;
+  const { currentUserId, q, lat, lng, communityId, includeSelf = false } = params;
   const radiusMeters = params.radiusMeters ?? DEFAULT_RADIUS_METERS;
 
-  const conditions: string[] = [BASE_WHERE];
+  const conditions: string[] = [`b.status = 'available' AND b.is_lendable = true`];
+  if (!includeSelf) conditions.push(`b.owner_id != $1`);
   const values: unknown[] = [currentUserId];
 
   // Full-text search

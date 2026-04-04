@@ -22,7 +22,7 @@ export default function Communities() {
     setExpanded(communityId);
     if (communityBooks[communityId]) return;
     try {
-      const books = await api.get<Book[]>(`/discover?communityId=${communityId}`);
+      const books = await api.get<Book[]>(`/discover?communityId=${communityId}&includeSelf=true`);
       setCommunityBooks(prev => ({ ...prev, [communityId]: books }));
     } catch { setCommunityBooks(prev => ({ ...prev, [communityId]: [] })); }
   }

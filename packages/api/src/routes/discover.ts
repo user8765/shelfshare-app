@@ -8,6 +8,7 @@ const QuerySchema = z.object({
   lng: z.coerce.number().min(-180).max(180).optional(),
   radius: z.coerce.number().positive().optional(),
   communityId: z.string().uuid().optional(),
+  includeSelf: z.enum(['true', 'false']).transform(v => v === 'true').optional(),
 });
 
 const discoverRoutes: FastifyPluginAsync = async (app) => {
@@ -22,6 +23,7 @@ const discoverRoutes: FastifyPluginAsync = async (app) => {
       lng: query.data.lng,
       radiusMeters: query.data.radius,
       communityId: query.data.communityId,
+      includeSelf: query.data.includeSelf,
     });
     return books;
   });
