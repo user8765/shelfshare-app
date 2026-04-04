@@ -21,7 +21,7 @@ async function buildApp() {
   const allowedOrigins = process.env['ALLOWED_ORIGINS']?.split(',') ?? ['http://localhost:5173', 'http://localhost:3000'];
 
   await app.register(helmet);
-  await app.register(cors, { origin: allowedOrigins });
+  await app.register(cors, { origin: allowedOrigins, methods: ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'] });
 
   // Global rate limit
   await app.register(rateLimit, { max: 100, timeWindow: '1 minute' });
